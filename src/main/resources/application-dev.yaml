@@ -1,0 +1,10 @@
+server:
+    port: 8089
+spring:
+    datasource:
+        url: jdbc:sqlserver://47.240.95.83\DESKTOP-MAQLM5H\SQLEXPRESS:11433;DatabaseName=activitiDemo
+        username: sa
+        password: wang@123
+        driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+        type: com.alibaba.druid.pool.DruidDataSource
+
