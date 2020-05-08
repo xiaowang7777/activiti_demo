@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wjf.github.activitidemo.mapper.ActivitiMapper">
+
+	<select id="findPkNameByTable" resultType="java.lang.String">
+		SELECT
+			syscolumns.name
+		FROM syscolumns,sysobjects,sysindexes,sysindexkeys
+		WHERE syscolumns.id = object_id(#{tableName})
+		AND sysobjects.xtype = 'PK'
+		AND sysobjects.parent_obj = syscolumns.id
+		AND sysindexes.id = syscolumns.id
+		AND sysobjects.name = sysindexes.name
+		AND sysindexkeys.id = syscolumns.id
+		AND sysindexkeys.indid = sysindexes.indid
+		AND syscolumns.colid = sysindexkeys.colid
+	</select>
+
+	<select id="findTableNameByProcessInstanceId" resultType="com.wjf.github.activitidemo.entity.BusinessTableInfo">
+		SELECT
+			ACT_HI_BUSINESS_TABLE_INFO.business_table_name,
+			ACT_RE_PROCESSINSTANCE_BUSINESS.pk
+		FROM
+			ACT_HI_BUSINESS_TABLE_INFO
+		LEFT JOIN ACT_RE_PROCESSINSTANCE_BUSINESS ON ACT_RE_PROCESSINSTANCE_BUSINESS.business_table_id=ACT_HI_BUSINESS_TABLE_INFO.business_table_id
+		WHERE ACT_RE_PROCESSINSTANCE_BUSINESS.process_instance_id=#{processInstanceId}
+	</select>
+	
+	<insert id="createNewProcessInstanceBusinessInfo">
+		INSERT INTO
+			ACT_RE_PROCESSINSTANCE_BUSINESS(
+				process_instance_id, business_table_id, pk,create_time
+			)
+		VALUES (
+			#{processInstanceId},
+			#{tableId},
+			#{pk},
+			GETDATE()
+		)
+	</insert>
+
+	<select id="executeSelectSql" resultType="java.util.Map">
+		DECLARE @sql VARCHAR(500)
+		SET @sql=#{sql}
+		EXEC @sql
+	</select>
+
+	<update id="executeUpdateSql">
+		DECLARE @sql VARCHAR(500)
+		SET @sql=#{sql}
+		EXEC @sql
+	</update>
+
+	<insert id="createNewHistoryDate">
+		INSERT INTO
+			ACT_HI_BUSINESSDATA(
+				history_data, process_instance_id, task_id, create_time
+			)
+		VALUES (
+			#{historyData},
+			#{processInstanceId},
+			#{taskId},
+			GETDATE()
+		)
+	</insert>
+
+	<select id="findBusinessHistoryData" resultType="com.wjf.github.activitidemo.entity.HistoryTableInfo">
+		SELECT
+			ACT_HI_BUSINESSDATA.history_data,
+			ACT_RE_PROCESSINSTANCE_BUSINESS.pk,
+			ACT_HI_BUSINESS_TABLE_INFO.business_table_name
+		FROM
+			ACT_HI_BUSINESSDATA
+		LEFT JOIN ACT_RE_PROCESSINSTANCE_BUSINESS ON ACT_RE_PROCESSINSTANCE_BUSINESS.process_instance_id=ACT_HI_BUSINESSDATA.process_instance_id
+		LEFT JOIN ACT_HI_BUSINESS_TABLE_INFO ON ACT_RE_PROCESSINSTANCE_BUSINESS.business_table_id=ACT_HI_BUSINESS_TABLE_INFO.business_table_id
+		WHERE
+			ACT_HI_BUSINESSDATA.process_instance_id=#{processInstanceId} AND ACT_HI_BUSINESSDATA.task_id=#{taskId}
+	</select>
+
+	<select id="findHistoryActivitiInfo" resultType="com.wjf.github.activitidemo.entity.TaskInfo">
+		SELECT
+			act_hi_taskinst.ID_ AS task_id,
+			act_hi_taskinst.NAME_ AS task_name,
+			act_hi_taskinst.PROC_INST_ID_ AS process_instance_id,
+			act_hi_taskinst.PROC_DEF_ID_ AS process_definition_id,
+			act_hi_taskinst.END_TIME_ AS end_time,
+			act_hi_varinst.TEXT_ AS task_info
+		FROM
+			act_hi_taskinst
+		LEFT JOIN act_hi_varinst ON act_hi_varinst.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_ AND act_hi_varinst.NAME_=act_hi_taskinst.ID_
+		WHERE
+			act_hi_taskinst.PROC_INST_ID_=#{processInstanceId} AND act_hi_taskinst.END_TIME_ IS NOT NULL
+		GROUP BY
+			act_hi_taskinst.ID_
+		ORDER BY
+			act_hi_taskinst.END_TIME_ DESC
+	</select>
+
+	<select id="findHistoryTaskInfo" resultType="com.wjf.github.activitidemo.entity.HistoryTaskInfo">
+		SELECT
+			act_hi_taskinst.ID_ AS task_id,
+			act_hi_taskinst.PROC_DEF_ID_ AS process_definetion_id,
+			act_hi_taskinst.PROC_INST_ID_ AS process_instance_id,
+			act_hi_taskinst.NAME_ AS task_name,
+			act_hi_taskinst.TASK_DEF_KEY_ AS task_definetion_key,
+			act_hi_taskinst.END_TIME_ AS end_time,
+			act_hi_varinst1.TEXT_ AS business_info,
+			act_hi_varinst2.TEXT_ AS task_info,
+			act_hi_taskinst.ASSIGNEE_ AS assignee
+		FROM
+			act_hi_taskinst
+		LEFT JOIN act_hi_varinst AS act_hi_varinst1 ON act_hi_varinst1.PROC_INST_ID_ = act_hi_taskinst.PROC_INST_ID_
+		LEFT JOIN (
+			SELECT
+				act_hi_taskinst.ID_,
+				act_hi_varinst.TEXT_
+			FROM
+				act_hi_taskinst
+			LEFT JOIN act_hi_varinst ON act_hi_varinst.NAME_ = act_hi_taskinst.ID_
+			WHERE
+				act_hi_taskinst.ID_ =#{taskId}
+			AND act_hi_varinst.NAME_ = act_hi_taskinst.ID_
+		) AS act_hi_varinst2 ON act_hi_varinst2.ID_ = act_hi_taskinst.ID_
+		WHERE
+			act_hi_taskinst.ID_ =#{taskId}
+		AND act_hi_varinst1.NAME_ = "data"
+		GROUP BY
+			act_hi_taskinst.ID_
+		ORDER BY
+			act_hi_taskinst.END_TIME_ DESC
+	</select>
+
+	<select id="findHistoryTaskAndVariablesAndProcessInstance" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
+		SELECT
+			*
+		FROM (
+			SELECT
+				act_hi_taskinst.ID_ AS task_id,
+				act_hi_taskinst.PROC_INST_ID_ AS process_instance_id,
+				act_hi_taskinst.START_TIME_ AS start_time,
+				act_hi_taskinst.END_TIME_ AS end_time,
+				act_hi_taskinst.PROC_DEF_ID_ AS process_definetion_id,
+				act_hi_taskinst.NAME_ AS task_name,
+				act_hi_varinst1.TEXT_ AS business_info,
+				act_hi_varinst2.TEXT_ AS kind,
+				act_re_deployment.NAME_ AS name
+			FROM
+				act_hi_taskinst
+			LEFT JOIN (
+				SELECT
+					act_hi_taskinst.PROC_INST_ID_
+				FROM
+					act_hi_taskinst
+				WHERE act_hi_taskinst.ASSIGNEE_=#{assignee}
+				GROUP BY act_hi_taskinst.PROC_INST_ID_
+			) tmp ON tmp.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
+			LEFT JOIN act_hi_varinst AS act_hi_varinst1 ON act_hi_varinst1.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
+			LEFT JOIN act_hi_varinst AS act_hi_varinst2 ON act_hi_varinst2.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
+			LEFT JOIN act_re_procdef ON act_hi_taskinst.PROC_DEF_ID_ = act_re_procdef.ID_
+			LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+			WHERE
+				act_hi_varinst1.NAME_="data"
+			AND act_hi_varinst2.NAME_="kind"
+			AND act_hi_taskinst.END_TIME_ IS NOT NULL
+			AND tmp.PROC_INST_ID_ IS NOT NULL
+			GROUP BY
+				act_hi_taskinst.ID_
+			ORDER BY
+				act_hi_taskinst.END_TIME_ DESC
+		)temp
+		GROUP BY
+			temp.process_instance_id
+	</select>
+
+	<select id="findMySelfTaskAndVariables" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
+		SELECT
+			act_ru_task.ID_ AS task_id,
+			act_ru_task.PROC_INST_ID_ AS process_instance_id,
+			act_ru_task.CREATE_TIME_ AS start_time,
+			act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
+			act_ru_task.NAME_ AS task_name,
+			act_ru_variable1.TEXT_ AS business_info,
+			act_ru_variable2.TEXT_ AS kind,
+			act_re_deployment.NAME_ AS name
+		FROM
+			act_ru_task
+		LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
+		LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
+		LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
+		LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+		WHERE
+			act_ru_task.ASSIGNEE_=#{assignee}
+		AND act_ru_variable1.NAME_='data'
+		AND act_ru_variable2.NAME_='kind'
+		GROUP BY
+			act_ru_task.ID_
+		ORDER BY
+			act_ru_task.CREATE_TIME_ DESC
+	</select>
+
+	<select id="findMySelfUserTaskBusinessByCandidate" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
+		SELECT
+			act_ru_task.ID_ AS task_id,
+			act_ru_task.PROC_INST_ID_ AS process_instance_id,
+			act_ru_task.CREATE_TIME_ AS start_time,
+			act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
+			act_ru_task.NAME_ AS task_name,
+			act_ru_variable1.TEXT_ AS business_info,
+			act_ru_variable2.TEXT_ AS kind,
+			act_re_deployment.NAME_ AS name
+		FROM
+			act_ru_task
+		LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
+		LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
+		LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
+		LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+		LEFT JOIN ACT_RU_IDENTITYLINK ON ACT_RU_TASK.ID_=ACT_RU_IDENTITYLINK.TASK_ID_
+		WHERE
+			act_ru_task.ASSIGNEE_ IS NULL
+		AND ACT_RU_IDENTITYLINK.USER_ID_=#{userId}
+		AND act_ru_variable1.NAME_='data'
+		AND act_ru_variable2.NAME_='kind'
+		GROUP BY
+			act_ru_task.ID_
+		ORDER BY
+			act_ru_task.CREATE_TIME_ DESC
+	</select>
+
+	<select id="findProcessDefinitionList" resultType="com.wjf.github.activitidemo.entity.ProcessInfo">
+		SELECT
+			ACT_RE_PROCDEF.ID_ AS process_definition_id,
+			ACT_RE_PROCDEF.DEPLOYMENT_ID_ AS deploy_id,
+			ACT_RE_PROCDEF.RESOURCE_NAME_ AS process_name
+		FROM
+			ACT_RE_PROCDEF
+	</select>
+
+	<select id="findUserListByGroup" resultType="java.lang.Integer">
+		SELECT
+			ACT_USER_GROUP.user_id
+		FROM
+			ACT_USER_GROUP
+		LEFT JOIN ACT_GROUP ON ACT_GROUP.group_id=ACT_USER_GROUP.group_id
+		WHERE
+			ACT_GROUP.group_name=REPLACE(#{groupName},' ','')
+	</select>
+
+	<select id="findUserListByGroups" resultType="java.lang.Integer">
+		SELECT
+			ACT_USER_GROUP.user_id
+		FROM
+			ACT_USER_GROUP
+		LEFT JOIN ACT_GROUP ON ACT_GROUP.group_id=ACT_USER_GROUP.group_id
+		WHERE
+			FIND_IN_SET(ACT_GROUP.group_name,REPLACE(#{groupName},' ',''))
+	</select>
+
+	<select id="findAllProcessDefinitionInfo" resultType="com.wjf.github.activitidemo.entity.ProcessDefinitionInfo">
+		SELECT
+			ACT_RE_PROCDEF.ID_ AS id,
+			ACT_RE_PROCDEF.RESOURCE_NAME_ AS name
+		FROM
+			ACT_RE_PROCDEF
+		LEFT JOIN ACT_RE_DEPLOYMENT ON ACT_RE_DEPLOYMENT.ID_=ACT_RE_PROCDEF.DEPLOYMENT_ID_
+		ORDER BY
+			ACT_RE_DEPLOYMENT.DEPLOY_TIME_ DESC
+	</select>
+
+	<select id="findUserTaskDetailInfo" resultType="com.wjf.github.activitidemo.entity.TaskNormalInfo">
+		SELECT
+			ACT_RU_TASK.ID_ AS task_id,
+			ACT_RU_TASK.PROC_INST_ID_ AS process_instance_id,
+			ACT_RU_TASK.PROC_DEF_ID_ AS process_definition_id,
+			ACT_RU_VARIABLE.TEXT_ AS info
+		FROM
+			ACT_RU_TASK
+		LEFT JOIN ACT_RU_VARIABLE ON ACT_RU_TASK.PROC_INST_ID_=ACT_RU_VARIABLE.PROC_INST_ID_
+		WHERE
+			ACT_RU_TASK.ID_=#{taskId}
+		AND
+			ACT_RU_VARIABLE.NAME_='data'
+	</select>
+
+</mapper>

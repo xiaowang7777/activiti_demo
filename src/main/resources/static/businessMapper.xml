@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wjf.github.activitidemo.mapper.BusinessMapper">
+	
+	<update id="activitiOperation">
+		UPDATE
+			test
+		SET
+			some_info=#{someInfo}
+		WHERE
+			test.id=#{Id}
+	</update>
+
+	<update id="activitiOperation1">
+		UPDATE
+			test
+		SET
+			name=#{name}
+		WHERE
+			test.id=#{Id}
+	</update>
+
+	<update id="activitiOperation2">
+		UPDATE
+			test
+		SET
+			name=#{name},
+			some_info=#{someInfo}
+		WHERE
+			test.id=#{Id}
+	</update>
+
+	<insert id="createNewBusinessInfo" parameterType="com.wjf.github.activitidemo.entity.BusinessInfo" keyProperty="id" useGeneratedKeys="true" keyColumn="id">
+		INSERT INTO
+			test(
+				name, some_info
+			)
+		VALUES (
+			#{name},#{someInfo}
+		)
+	</insert>
+
+	<select id="findBusinessPathInfo" resultType="com.wjf.github.activitidemo.entity.InterfaceInfo">
+		SELECT
+			ACT_BUSINESS_INTERFACE.id,
+			ACT_BUSINESS_INTERFACE.interface_name,
+			ACT_BUSINESS_INTERFACE.interface_path
+		FROM
+			ACT_BUSINESS_INTERFACE
+	</select>
+
+	<select id="findAllGroupInfo" resultType="com.wjf.github.activitidemo.entity.GroupInfo">
+		SELECT
+			ACT_GROUP.group_id,
+			ACT_GROUP.group_name
+		FROM
+			ACT_GROUP
+	</select>
+
+	<select id="findAllBusinessInfo" resultType="com.wjf.github.activitidemo.entity.BusinessInfo">
+		SELECT
+			test.id,
+			test.some_info,
+			test.name
+		FROM
+			test
+	</select>
+
+</mapper>

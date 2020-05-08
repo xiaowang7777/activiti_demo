@@ -7,4 +7,26 @@ spring:
         password: wang@123
         driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
         type: com.alibaba.druid.pool.DruidDataSource
+    activiti:
+        database-schema-update: false
+        history-level: full
+        db-history-used: true
+        async-executor-activate: false
+    main:
+        allow-bean-definition-overriding: true
 
+mybatis:
+    type-aliases-package: com.wjf.github.activitidemo.domain
+    mapper-locations: classpath:static/*.xml
+    configuration:
+        map-underscore-to-camel-case: true
+logging:
+    level:
+        com.wjf.github.activitidemo.mapper: debug
+
+file:
+    templatePath: C:\template\
+    handlerPath: /excel/
+    staticAccessPath: /excel/**
+    excludeStaticAccessPath: /**/excel/**
+    localPath: C:\test\
