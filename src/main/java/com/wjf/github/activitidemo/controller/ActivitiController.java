@@ -1,10 +1,7 @@
 package com.wjf.github.activitidemo.controller;
 
 import com.wjf.github.activitidemo.config.FileConfigProperties;
-import com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo;
-import com.wjf.github.activitidemo.entity.HistoryTaskInfo;
-import com.wjf.github.activitidemo.entity.ProcessDefinitionInfo;
-import com.wjf.github.activitidemo.entity.TaskNormalInfo;
+import com.wjf.github.activitidemo.entity.*;
 import com.wjf.github.activitidemo.service.ActivitiService;
 import com.wjf.github.activitidemo.util.*;
 import org.activiti.engine.history.HistoricTaskInstance;
@@ -35,11 +32,7 @@ public class ActivitiController {
 
 	@PostMapping("/userTaskClaim/{taskInfo}/{userInfo}")
 	public ResponseMap<String> userTaskClaim(@PathVariable("taskInfo") String taskInfo, @PathVariable("userInfo") String userInfo) {
-		byte[] taskByte = Base64.getDecoder().decode(taskInfo.getBytes());
-		byte[] userByte = Base64.getDecoder().decode(userInfo.getBytes());
-		String taskId = new String(taskByte);
-		String userId = new String(userByte);
-		activitiService.userTaskClaim(taskId, userId);
+		activitiService.userTaskClaim(taskInfo, userInfo);
 		return ResponseMap.getSuccessResult();
 	}
 
@@ -86,16 +79,39 @@ public class ActivitiController {
 	public void getActivityResourceDiagramInputStreamByProcessDefinitionId(@PathVariable("processDefinitionId") String processDefinitionId, HttpServletResponse response) throws IOException, TranscoderException, DocumentException {
 		response.setContentType("image/png");
 
-		response.setDateHeader("Expires", 0L);
-		response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-		response.addHeader("Cache-Control", "post-check=0, pre-check=0");
-		response.setHeader("Pragma", "no-cache");
+//		response.setDateHeader("Expires", 0L);
+//		response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+//		response.addHeader("Cache-Control", "post-check=0, pre-check=0");
+//		response.setHeader("Pragma", "no-cache");
 
 		ServletOutputStream outputStream = null;
 		try {
 			outputStream = response.getOutputStream();
 			activitiService.getActivityResourceDiagramInputStreamByProcessDefinitionId(processDefinitionId, outputStream);
 		} catch (IOException | DocumentException | TranscoderException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (outputStream != null && !response.isCommitted()) {
+					outputStream.flush();
+					outputStream.close();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	@GetMapping("/getActivityResourceDiagramInputStreamByProcessStanceId/{processInstanceId}")
+	public void getActivityResourceDiagramInputStreamByProcessStanceId(@PathVariable("processInstanceId") String processInstanceId, HttpServletResponse response) throws IOException, TranscoderException, DocumentException {
+		response.setContentType("image/png");
+
+
+		ServletOutputStream outputStream = null;
+		try {
+			outputStream = response.getOutputStream();
+			activitiService.getActivityResourceDiagramInputStream(processInstanceId, outputStream);
+		} catch (IOException | DocumentException | TranscoderException | ProcessInstanceDontFindException e) {
 			e.printStackTrace();
 		} finally {
 			try {
@@ -125,5 +141,15 @@ public class ActivitiController {
 		byte[] decode = Base64.getDecoder().decode(taskInfo);
 		String taskId = new String(decode);
 		return ResponseMap.getSuccessResult(activitiService.findUserTaskDetailInfo(taskId));
+	}
+
+	@PostMapping("/findNowTaskInfo/{taskId}/{assignee}")
+	public ResponseMap<TaskInterface> findNowTaskInfo(@PathVariable("taskId") String taskId, @PathVariable("assignee") String assignee){
+		return ResponseMap.getSuccessResult(activitiService.findNowTaskInfo(taskId,assignee));
+	}
+
+	@PostMapping("/findMySelfUserTaskByAssignee/{userId}")
+	public ResponseMap<List<ActivitiTaskVariablesInfo>> findMySelfUserTaskByAssignee(@PathVariable("userId") String userId){
+		return ResponseMap.getSuccessResult(activitiService.findMySelfUserTaskByAssignee(userId));
 	}
 }

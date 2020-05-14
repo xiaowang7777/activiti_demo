@@ -14,6 +14,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +24,8 @@ public interface ActivitiService {
 	Boolean deployNewActiviti(String zipPath, String name, String fileName) throws FileNotFoundException;
 
 	Boolean deployNewActiviti(BpmnModel bpmnModel, String deployName);
+
+	Boolean deployNewActiviti(InputStream inputStream, String deployName);
 
 	@Transactional
 	<T> StartProcessReturnInfo<T> startTechnologicalProcess(String processDefinitionId, Map<String, Object> processValue,
@@ -34,7 +37,7 @@ public interface ActivitiService {
 	<T> T completeUserTask(String taskId, Integer operationUserIdNow, Map<String, Object> processValue,
 	                       Map<String, Object> businessValue, GetObjectByValue<T> businessMethod,
 	                       Map<String, Object> priorValues, BusinessDataVerification priorVerification,
-	                       Map<String, Object> posteriorValues, BusinessDataVerification posterioriVerification) throws UserTaskDontMatchException, PriorConditionDontSatisfyException, PosterioriConditionDontSatisfyException, IOException, ProcessInstanceDontFindException, NumberFormatException, UserTaskDontFindException;
+	                       Map<String, Object> posteriorValues, BusinessDataVerification posterioriVerification, Class clazz) throws UserTaskDontMatchException, PriorConditionDontSatisfyException, PosterioriConditionDontSatisfyException, IOException, ProcessInstanceDontFindException, NumberFormatException, UserTaskDontFindException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException;
 
 	<T> Map<String, Object> getVariablesByBusiness(String taskId, T t);
 
@@ -101,4 +104,8 @@ public interface ActivitiService {
 	List<ProcessDefinitionInfo> findAllProcessDefinitionInfo();
 
 	TaskNormalInfo findUserTaskDetailInfo(String taskId);
+
+	TaskInterface findNowTaskInfo(String taskId, String assignee);
+
+	List<ActivitiTaskVariablesInfo> findMySelfUserTaskByAssignee(String userId);
 }

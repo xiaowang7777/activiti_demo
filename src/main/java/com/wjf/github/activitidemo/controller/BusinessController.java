@@ -12,6 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -32,7 +35,7 @@ public class BusinessController {
 
 
 	@PostMapping("/activitiOperation")
-	public ResponseMap<String> activitiOperation(@RequestBody MyMap<String, Object> values) throws UserTaskDontFindException, IOException, ProcessInstanceDontFindException, PosterioriConditionDontSatisfyException, UserTaskDontMatchException, PriorConditionDontSatisfyException {
+	public ResponseMap<String> activitiOperation(@RequestBody MyMap<String, Object> values) throws UserTaskDontFindException, IOException, ProcessInstanceDontFindException, PosterioriConditionDontSatisfyException, UserTaskDontMatchException, PriorConditionDontSatisfyException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchFieldException {
 
 		String taskId = values.eject("taskId") + "";
 		Integer userId = (Integer) values.eject("userId");
@@ -56,12 +59,12 @@ public class BusinessController {
 		BusinessDataVerification postposition = map -> true;
 
 		Map<String, Object> variables = activitiService.getVariablesByBusiness(taskId, businessInfo);
-		Integer completeUserTask = activitiService.completeUserTask(taskId, userId, variables, values, business, null, preposition, null, postposition);
+		Integer completeUserTask = activitiService.completeUserTask(taskId, userId, variables, values, business, null, preposition, null, postposition,BusinessInfo.class);
 		return completeUserTask > 0 ? ResponseMap.getSuccessResult() : ResponseMap.getFailResult();
 	}
 
 	@PostMapping("/activitiOperation1")
-	public ResponseMap<String> activitiOperation1(@RequestBody MyMap<String, Object> values) throws UserTaskDontFindException, IOException, ProcessInstanceDontFindException, PosterioriConditionDontSatisfyException, UserTaskDontMatchException, PriorConditionDontSatisfyException {
+	public ResponseMap<String> activitiOperation1(@RequestBody MyMap<String, Object> values) throws UserTaskDontFindException, IOException, ProcessInstanceDontFindException, PosterioriConditionDontSatisfyException, UserTaskDontMatchException, PriorConditionDontSatisfyException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchFieldException {
 		String taskId = values.eject("taskId") + "";
 		Integer userId = (Integer) values.eject("userId");
 
@@ -80,12 +83,12 @@ public class BusinessController {
 		GetObjectByValue<Integer> business = map -> businessService.activitiOperation1(map.get("name") == null ? null
 				: map.get("name") + "", map.get("id") == null ? null : ((Integer) map.get("id")));
 		Map<String, Object> variables = activitiService.getVariablesByBusiness(taskId, businessInfo);
-		Integer completeUserTask = activitiService.completeUserTask(taskId, userId, variables, values, business, null, preposition, null, postposition);
+		Integer completeUserTask = activitiService.completeUserTask(taskId, userId, variables, values, business, null, preposition, null, postposition,BusinessInfo.class);
 		return completeUserTask > 0 ? ResponseMap.getSuccessResult() : ResponseMap.getFailResult();
 	}
 
 	@PostMapping("/activitiOperation2")
-	public ResponseMap<String> activitiOperation2(@RequestBody MyMap<String, Object> values) throws UserTaskDontFindException, IOException, ProcessInstanceDontFindException, PosterioriConditionDontSatisfyException, UserTaskDontMatchException, PriorConditionDontSatisfyException {
+	public ResponseMap<String> activitiOperation2(@RequestBody MyMap<String, Object> values) throws UserTaskDontFindException, IOException, ProcessInstanceDontFindException, PosterioriConditionDontSatisfyException, UserTaskDontMatchException, PriorConditionDontSatisfyException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchFieldException {
 		String taskId = values.eject("taskId") + "";
 		Integer userId = (Integer) values.eject("userId");
 
@@ -99,13 +102,14 @@ public class BusinessController {
 		BusinessDataVerification preposition = map -> true;
 		BusinessDataVerification postposition = map -> true;
 		if (values.get("id") != null && !"".equals(values.get("id"))) {
-			businessInfo.setId((Integer) values.get("id"));
+			businessInfo.setId(values.get("id") instanceof Integer ? (Integer) values.get("id") : Integer.parseInt(values.get("id") + ""));
 		}
 		GetObjectByValue<Integer> business = map -> businessService.activitiOperation2(map.get("someInfo") == null ? null
 				: map.get("someInfo") + "", map.get("name") == null ? null
 				: map.get("name") + "", map.get("id") == null ? null : ((Integer) map.get("id")));
 		Map<String, Object> variables = activitiService.getVariablesByBusiness(taskId, businessInfo);
-		Integer completeUserTask = activitiService.completeUserTask(taskId, userId, variables, values, business, null, preposition, null, postposition);
+		Integer completeUserTask = activitiService.completeUserTask(taskId, userId, variables, values, business, null, preposition, null, postposition,BusinessInfo.class);
+		System.out.println(completeUserTask);
 		return completeUserTask > 0 ? ResponseMap.getSuccessResult() : ResponseMap.getFailResult();
 	}
 
@@ -147,7 +151,7 @@ public class BusinessController {
 	}
 
 	@PostMapping("/test")
-	public ResponseMap<String> test(@RequestBody Map<String, Object> values) throws IOException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+	public ResponseMap<String> test(@RequestBody Map<String, Object> values) throws IOException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchFieldException {
 		String nodeInfo = values.get("nodeList") + "";
 		String lineInfo = values.get("lineList") + "";
 		String flowInfo = values.get("flowInfo") + "";
@@ -157,32 +161,59 @@ public class BusinessController {
 		FlowInfo flow = objectMapper.readValue(flowInfo, FlowInfo.class);
 		List<NodeBaseInfo> list = new ArrayList<>();
 
+		MyList<NodeInfo> nodeInfos = new MyList<>();
+		MyList<LineInfo> lineInfos = new MyList<>();
+
 		BpmnModel bpmnModel = new BpmnModel();
 		Process process = new Process();
 
 		for (LinkedHashMap<String, Object> map : nodeList) {
 			NodeInfo info = MapUtil.MapToBean(map, NodeInfo.class);
 			list.add(info);
-			System.out.println(info);
+			nodeInfos.add(info);
 			process.addFlowElement(FlowElementGenerateUtil.createFlowElement(info));
 		}
 		for (LinkedHashMap<String, Object> map : lineList) {
 			LineInfo info = MapUtil.MapToBean(map, LineInfo.class);
 			list.add(info);
-			System.out.println(info);
+			lineInfos.add(info);
 			process.addFlowElement(FlowElementGenerateUtil.createFlowElement(info));
 		}
 
-		Document document = XmlUtil.createDocument(flow.getId(), list, 832.4, 1185.2);
+		Document document = XmlBPMNUtil.createDocument(flow.getId(), nodeInfos, lineInfos, 832.4, 1185.2);
 		String s = document.asXML();
-		System.out.println(s);
 
-		process.setId(flow.getId());
+		File file = new File("C:/test");
+
+		if (!file.exists()) {
+			file.mkdirs();
+		}
+		File file1 = new File("C:/test/" + UUID.randomUUID() + ".xml");
+		File file2 = new File("C:/test/" + UUID.randomUUID() + ".bpmn");
+
+		file1.createNewFile();
+		file2.createNewFile();
+
+		FileOutputStream fos1 = new FileOutputStream(file1);
+		FileOutputStream fos2 = new FileOutputStream(file2);
+
+		fos1.write(s.getBytes());
+		fos2.write(s.getBytes());
+
+		fos1.flush();
+		fos1.close();
+		fos2.flush();
+		fos2.close();
+
+		process.setId("process_" + flow.getId());
 		process.setName(flow.getName());
 
 		bpmnModel.addProcess(process);
 
-		Boolean aBoolean = activitiService.deployNewActiviti(bpmnModel, flow.getName());
+		Boolean aBoolean = activitiService.deployNewActiviti(new FileInputStream(file2), flow.getName());
+
+		file1.delete();
+		file2.delete();
 
 		return aBoolean ? ResponseMap.getSuccessResult() : ResponseMap.getFailResult();
 	}

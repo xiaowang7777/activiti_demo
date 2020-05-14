@@ -17,8 +17,8 @@
 		AND sysindexkeys.indid = sysindexes.indid
 		AND syscolumns.colid = sysindexkeys.colid
 	</select>
-
-	<select id="findTableNameByProcessInstanceId" resultType="com.wjf.github.activitidemo.entity.BusinessTableInfo">
+<!--	findTableNameByProcessInstanceId-->
+	<select id="findBusinessTableInfoByProcessInstanceId" resultType="com.wjf.github.activitidemo.entity.BusinessTableInfo">
 		SELECT
 			ACT_HI_BUSINESS_TABLE_INFO.business_table_name,
 			ACT_RE_PROCESSINSTANCE_BUSINESS.pk
@@ -44,13 +44,13 @@
 	<select id="executeSelectSql" resultType="java.util.Map">
 		DECLARE @sql VARCHAR(500)
 		SET @sql=#{sql}
-		EXEC @sql
+		EXEC (@sql)
 	</select>
 
 	<update id="executeUpdateSql">
 		DECLARE @sql VARCHAR(500)
 		SET @sql=#{sql}
-		EXEC @sql
+		EXEC (@sql)
 	</update>
 
 	<insert id="createNewHistoryDate">
@@ -134,98 +134,139 @@
 
 	<select id="findHistoryTaskAndVariablesAndProcessInstance" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
 		SELECT
-			*
+
+			tmp.*
 		FROM (
-			SELECT
-				act_hi_taskinst.ID_ AS task_id,
-				act_hi_taskinst.PROC_INST_ID_ AS process_instance_id,
-				act_hi_taskinst.START_TIME_ AS start_time,
-				act_hi_taskinst.END_TIME_ AS end_time,
-				act_hi_taskinst.PROC_DEF_ID_ AS process_definetion_id,
-				act_hi_taskinst.NAME_ AS task_name,
-				act_hi_varinst1.TEXT_ AS business_info,
-				act_hi_varinst2.TEXT_ AS kind,
-				act_re_deployment.NAME_ AS name
-			FROM
-				act_hi_taskinst
-			LEFT JOIN (
 				SELECT
-					act_hi_taskinst.PROC_INST_ID_
+					ROW_NUMBER() OVER(PARTITION BY act_hi_taskinst.ID_ ORDER BY act_hi_taskinst.START_TIME_ DESC) AS key_,
+					act_hi_taskinst.ID_ AS task_id,
+					act_hi_taskinst.PROC_INST_ID_ AS process_instance_id,
+					act_hi_taskinst.START_TIME_ AS start_time,
+					act_hi_taskinst.END_TIME_ AS end_time,
+					act_hi_taskinst.PROC_DEF_ID_ AS process_definetion_id,
+					act_hi_taskinst.NAME_ AS task_name,
+					act_hi_varinst1.TEXT_ AS business_info,
+					act_hi_varinst2.TEXT_ AS kind,
+					act_re_deployment.NAME_ AS name
 				FROM
 					act_hi_taskinst
-				WHERE act_hi_taskinst.ASSIGNEE_=#{assignee}
-				GROUP BY act_hi_taskinst.PROC_INST_ID_
-			) tmp ON tmp.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
-			LEFT JOIN act_hi_varinst AS act_hi_varinst1 ON act_hi_varinst1.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
-			LEFT JOIN act_hi_varinst AS act_hi_varinst2 ON act_hi_varinst2.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
-			LEFT JOIN act_re_procdef ON act_hi_taskinst.PROC_DEF_ID_ = act_re_procdef.ID_
-			LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
-			WHERE
-				act_hi_varinst1.NAME_="data"
-			AND act_hi_varinst2.NAME_="kind"
-			AND act_hi_taskinst.END_TIME_ IS NOT NULL
-			AND tmp.PROC_INST_ID_ IS NOT NULL
-			GROUP BY
-				act_hi_taskinst.ID_
-			ORDER BY
-				act_hi_taskinst.END_TIME_ DESC
-		)temp
-		GROUP BY
-			temp.process_instance_id
+				LEFT JOIN (
+					SELECT
+						act_hi_taskinst.PROC_INST_ID_
+					FROM
+						act_hi_taskinst
+					WHERE act_hi_taskinst.ASSIGNEE_=#{assignee}
+					GROUP BY act_hi_taskinst.PROC_INST_ID_
+				) tmp ON tmp.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
+				LEFT JOIN act_hi_varinst AS act_hi_varinst1 ON act_hi_varinst1.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
+				LEFT JOIN act_hi_varinst AS act_hi_varinst2 ON act_hi_varinst2.PROC_INST_ID_=act_hi_taskinst.PROC_INST_ID_
+				LEFT JOIN act_re_procdef ON act_hi_taskinst.PROC_DEF_ID_ = act_re_procdef.ID_
+				LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+				WHERE
+					act_hi_varinst1.NAME_='data'
+	-- 			AND act_hi_varinst2.NAME_='kind'
+				AND act_hi_taskinst.END_TIME_ IS NOT NULL
+				AND tmp.PROC_INST_ID_ IS NOT NULL
+				ORDER BY
+					act_hi_taskinst.END_TIME_ DESC
+		)tmp
+		WHERE tmp.key_=1
 	</select>
 
 	<select id="findMySelfTaskAndVariables" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
 		SELECT
-			act_ru_task.ID_ AS task_id,
-			act_ru_task.PROC_INST_ID_ AS process_instance_id,
-			act_ru_task.CREATE_TIME_ AS start_time,
-			act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
-			act_ru_task.NAME_ AS task_name,
-			act_ru_variable1.TEXT_ AS business_info,
-			act_ru_variable2.TEXT_ AS kind,
-			act_re_deployment.NAME_ AS name
-		FROM
-			act_ru_task
-		LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
-		LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
-		LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
-		LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
-		WHERE
-			act_ru_task.ASSIGNEE_=#{assignee}
-		AND act_ru_variable1.NAME_='data'
-		AND act_ru_variable2.NAME_='kind'
-		GROUP BY
-			act_ru_task.ID_
-		ORDER BY
-			act_ru_task.CREATE_TIME_ DESC
+			*
+		FROM (
+			SELECT
+				ROW_NUMBER() OVER(PARTITION BY ACT_RU_TASK.ID_ ORDER BY ACT_RU_TASK.CREATE_TIME_ DESC ) AS key_,
+				act_ru_task.ID_ AS task_id,
+				act_ru_task.PROC_INST_ID_ AS process_instance_id,
+				act_ru_task.CREATE_TIME_ AS start_time,
+				act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
+				act_ru_task.NAME_ AS task_name,
+				act_ru_variable1.TEXT_ AS business_info,
+	-- 			act_ru_variable2.TEXT_ AS kind,
+				act_re_deployment.NAME_ AS name
+			FROM
+				act_ru_task
+			LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
+			LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
+			LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
+			LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+			WHERE
+				act_ru_task.ASSIGNEE_=#{assignee}
+			AND act_ru_variable1.NAME_='data'
+	-- 		AND act_ru_variable2.NAME_='kind'
+			GROUP BY
+				act_ru_task.ID_
+			ORDER BY
+				act_ru_task.CREATE_TIME_ DESC
+		) tmp
+		WHERE tmp.key_=1
 	</select>
 
 	<select id="findMySelfUserTaskBusinessByCandidate" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
 		SELECT
-			act_ru_task.ID_ AS task_id,
-			act_ru_task.PROC_INST_ID_ AS process_instance_id,
-			act_ru_task.CREATE_TIME_ AS start_time,
-			act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
-			act_ru_task.NAME_ AS task_name,
-			act_ru_variable1.TEXT_ AS business_info,
-			act_ru_variable2.TEXT_ AS kind,
-			act_re_deployment.NAME_ AS name
-		FROM
-			act_ru_task
-		LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
-		LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
-		LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
-		LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
-		LEFT JOIN ACT_RU_IDENTITYLINK ON ACT_RU_TASK.ID_=ACT_RU_IDENTITYLINK.TASK_ID_
-		WHERE
-			act_ru_task.ASSIGNEE_ IS NULL
-		AND ACT_RU_IDENTITYLINK.USER_ID_=#{userId}
-		AND act_ru_variable1.NAME_='data'
-		AND act_ru_variable2.NAME_='kind'
-		GROUP BY
-			act_ru_task.ID_
+			*
+		FROM (
+			SELECT
+				ROW_NUMBER() OVER(PARTITION BY ACT_RU_TASK.ID_ ORDER BY ACT_RU_TASK.CREATE_TIME_ DESC) AS key_,
+				act_ru_task.ID_ AS task_id,
+				act_ru_task.PROC_INST_ID_ AS process_instance_id,
+				act_ru_task.CREATE_TIME_ AS start_time,
+				act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
+				act_ru_task.NAME_ AS task_name,
+				act_ru_variable1.TEXT_ AS business_info,
+-- 				act_ru_variable2.TEXT_ AS kind,
+				act_re_deployment.NAME_ AS name
+			FROM
+				act_ru_task
+			LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
+			LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
+			LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
+			LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+			LEFT JOIN ACT_RU_IDENTITYLINK ON ACT_RU_TASK.ID_=ACT_RU_IDENTITYLINK.TASK_ID_
+			WHERE
+				act_ru_task.ASSIGNEE_ IS NULL
+			AND ACT_RU_IDENTITYLINK.USER_ID_=#{userId}
+			AND act_ru_variable1.NAME_='data'
+-- 			AND act_ru_variable2.NAME_='kind'
+		)AS tmp
+		WHERE tmp.key_=1
 		ORDER BY
-			act_ru_task.CREATE_TIME_ DESC
+			tmp.start_time DESC
+	</select>
+
+	<select id="findMySelfUserTaskByAssignee" resultType="com.wjf.github.activitidemo.entity.ActivitiTaskVariablesInfo">
+		SELECT
+			*
+		FROM (
+			SELECT
+				ROW_NUMBER() OVER(PARTITION BY ACT_RU_TASK.ID_ ORDER BY ACT_RU_TASK.CREATE_TIME_ DESC) AS key_,
+				act_ru_task.ID_ AS task_id,
+				act_ru_task.PROC_INST_ID_ AS process_instance_id,
+				act_ru_task.CREATE_TIME_ AS start_time,
+				act_ru_task.PROC_DEF_ID_ AS process_definetion_id,
+				act_ru_task.NAME_ AS task_name,
+				act_ru_variable1.TEXT_ AS business_info,
+-- 				act_ru_variable2.TEXT_ AS kind,
+				act_re_deployment.NAME_ AS name
+			FROM
+				act_ru_task
+			LEFT JOIN act_ru_variable AS act_ru_variable1 ON act_ru_task.PROC_INST_ID_=act_ru_variable1.PROC_INST_ID_
+			LEFT JOIN act_ru_variable AS act_ru_variable2 ON act_ru_task.PROC_INST_ID_=act_ru_variable2.PROC_INST_ID_
+			LEFT JOIN act_re_procdef ON act_ru_task.PROC_DEF_ID_ = act_re_procdef.ID_
+			LEFT JOIN act_re_deployment ON act_re_procdef.DEPLOYMENT_ID_=act_re_deployment.ID_
+			LEFT JOIN ACT_RU_IDENTITYLINK ON ACT_RU_TASK.ID_=ACT_RU_IDENTITYLINK.TASK_ID_
+			WHERE
+				act_ru_task.ASSIGNEE_ = #{userId}
+			AND ACT_RU_IDENTITYLINK.USER_ID_=#{userId}
+			AND act_ru_variable1.NAME_='data'
+-- 			AND act_ru_variable2.NAME_='kind'
+		)AS tmp
+		WHERE tmp.key_=1
+		ORDER BY
+			tmp.start_time DESC
 	</select>
 
 	<select id="findProcessDefinitionList" resultType="com.wjf.github.activitidemo.entity.ProcessInfo">
@@ -281,6 +322,19 @@
 			ACT_RU_TASK.ID_=#{taskId}
 		AND
 			ACT_RU_VARIABLE.NAME_='data'
+	</select>
+
+	<select id="findNowTaskInfo" resultType="com.wjf.github.activitidemo.entity.TaskInterface">
+		SELECT
+			ACT_RU_TASK.ID_ AS task_id,
+			ACT_RU_TASK.PROC_INST_ID_ AS process_instance_id,
+			ACT_RU_TASK.PROC_DEF_ID_ AS process_definition_id,
+			ACT_RU_TASK.CREATE_TIME_ AS create_time,
+			ACT_BUSINESS_INTERFACE.interface_path AS interface_path
+		FROM
+			ACT_RU_TASK
+		LEFT JOIN ACT_BUSINESS_INTERFACE ON ACT_RU_TASK.FORM_KEY_=ACT_BUSINESS_INTERFACE.id
+		WHERE ACT_RU_TASK.ID_=#{taskId} AND ACT_RU_TASK.ASSIGNEE_=#{assignee}
 	</select>
 
 </mapper>

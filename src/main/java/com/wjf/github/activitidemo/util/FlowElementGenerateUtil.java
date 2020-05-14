@@ -59,14 +59,14 @@ public enum FlowElementGenerateUtil {
 		if (nodeBaseInfo instanceof NodeInfo) {
 			NodeInfo nodeInfo = (NodeInfo) nodeBaseInfo;
 			if (nodeInfo.getType() == 1) {
-				return START_EVENT.createFlowElement(nodeInfo.getName(), nodeInfo.getId());
+				return START_EVENT.createFlowElement(nodeInfo.getName(), "_" + nodeInfo.getId());
 			} else if (nodeInfo.getType() == 2) {
-				return END_EVENT.createFlowElement(nodeInfo.getName(), nodeInfo.getId());
+				return END_EVENT.createFlowElement(nodeInfo.getName(), "_" + nodeInfo.getId());
 			}
-			return USER_TASK.createFlowElement(nodeInfo.getId(), nodeInfo.getPath() + "", nodeInfo.getUserGroup(), nodeInfo.getName());
+			return USER_TASK.createFlowElement("_" + nodeInfo.getId(), nodeInfo.getPath() + "", nodeInfo.getUserGroup(), nodeInfo.getName());
 		} else {
 			LineInfo lineInfo = (LineInfo) nodeBaseInfo;
-			return SEQUENCE_FLOW.createFlowElement(lineInfo.getId(), lineInfo.getFrom(), lineInfo.getTo(), null);
+			return SEQUENCE_FLOW.createFlowElement("_" + lineInfo.getId(), "_" + lineInfo.getFrom(), "_" + lineInfo.getTo(), null);
 		}
 	}
 

@@ -211,6 +211,11 @@
 			<artifactId>sac</artifactId>
 			<version>1.3</version>
 		</dependency>
+		<dependency>
+			<groupId>org.eclipse</groupId>
+			<artifactId>org.eclipse.bpmn2</artifactId>
+			<version>0.8.2-jboss</version>
+		</dependency>
 	</dependencies>
 
 	<build>

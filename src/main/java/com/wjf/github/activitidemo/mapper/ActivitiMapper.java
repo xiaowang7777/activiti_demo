@@ -42,4 +42,8 @@ public interface ActivitiMapper {
 	List<ProcessDefinitionInfo> findAllProcessDefinitionInfo();
 
 	TaskNormalInfo findUserTaskDetailInfo(String taskId);
+
+	TaskInterface findNowTaskInfo(String taskId,String assignee);
+
+	List<ActivitiTaskVariablesInfo> findMySelfUserTaskByAssignee(String userId);
 }

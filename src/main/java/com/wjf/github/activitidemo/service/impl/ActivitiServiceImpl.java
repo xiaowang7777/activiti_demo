@@ -28,11 +28,14 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.validation.constraints.NotNull;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -50,6 +53,8 @@ import java.util.zip.ZipInputStream;
  */
 @Service
 public class ActivitiServiceImpl implements ActivitiService {
+
+	private static final Logger logger = LoggerFactory.getLogger(ActivitiServiceImpl.class);
 
 	private final TaskService taskService;
 
@@ -115,6 +120,15 @@ public class ActivitiServiceImpl implements ActivitiService {
 		return deploy != null;
 	}
 
+	@Override
+	public Boolean deployNewActiviti(InputStream inputStream, String deployName) {
+		Deployment deploy = repositoryService.createDeployment()
+				.addInputStream(deployName + ".bpmn", inputStream)
+				.name(deployName)
+				.deploy();
+		return deploy != null;
+	}
+
 	/**
 	 * 开始流程
 	 *
@@ -139,12 +153,14 @@ public class ActivitiServiceImpl implements ActivitiService {
 	                                                               GetObjectByValue<T> businessMethod, Map<String, Object> priorValues, BusinessDataVerification priorVerification,
 	                                                               Map<String, Object> posteriorValues, BusinessDataVerification posterioriVerification) throws PriorConditionDontSatisfyException, PosterioriConditionDontSatisfyException, ProcessInstanceDontFindException, IOException, KindCantUseException, StartEventDontHaveAnyOutGoingFlowsException, UserTaskDontFindException {
 
-		//		前验条件
+//		前验条件
+		logger.info("***开启流程前验条件***");
 		if (!priorVerification.execute(priorValues)) {
 			throw new PriorConditionDontSatisfyException();
 		}
 		Map<String, Object> values = new HashMap<>();
 
+		logger.info("***获取流程信息，以设置任务执行人员***");
 		Process process = repositoryService.getBpmnModel(processDefinitionId)
 				.getProcesses()
 				.get(0);
@@ -153,23 +169,26 @@ public class ActivitiServiceImpl implements ActivitiService {
 		UserTask userTask = getOperationUserStatus(startEvent, values);
 		setCandidateUsers(userTask, values);
 
-		System.out.println(values);
-
 //		开启流程
+		logger.info("***开启流程***");
 		ProcessInstance processInstance = runtimeService.startProcessInstanceById(processDefinitionId, values);
 
+		logger.info("***开启流程成功，开始执行业务函数***");
 		T execute = businessMethod.execute(businessValue);
 
 		if (processValue != null) {
+			logger.info("***设置流程参数:" + processValue + "***");
 			setVariablesByProcessInstance(processInstance.getProcessInstanceId(), processValue);
 		}
 
 //      后验条件
+		logger.info("***执行任务后验条件***");
 		if (!posterioriVerification.execute(posteriorValues)) {
 			throw new PosterioriConditionDontSatisfyException();
 		}
 
 //		用于记录流程操作的是哪个表
+		logger.info("***记录流程操作数据表***");
 		activitiMapper.createNewProcessInstanceBusinessInfo(processInstance.getProcessInstanceId(), operationTableId, businessId.get(0));
 
 		StartProcessReturnInfo<T> returnInfo = new StartProcessReturnInfo<>();
@@ -206,14 +225,15 @@ public class ActivitiServiceImpl implements ActivitiService {
 	public <T> T completeUserTask(String taskId, Integer operationUserIdNow, Map<String, Object> processValue,
 	                              Map<String, Object> businessValue, GetObjectByValue<T> businessMethod,
 	                              Map<String, Object> priorValues, BusinessDataVerification priorVerification,
-	                              Map<String, Object> posteriorValues, BusinessDataVerification posteriorVerification)
+	                              Map<String, Object> posteriorValues, BusinessDataVerification posteriorVerification, Class clazz)
 			throws UserTaskDontMatchException,
 			PriorConditionDontSatisfyException,
 			PosterioriConditionDontSatisfyException,
 			IOException,
 			ProcessInstanceDontFindException,
-			NumberFormatException, UserTaskDontFindException {
+			NumberFormatException, UserTaskDontFindException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException {
 
+		logger.info("***开始校验业务数据的前置验证条件***");
 //		业务逻辑处理前的对数据的前验条件判断
 		if (!priorVerification.execute(priorValues)) {
 			throw new PriorConditionDontSatisfyException();
@@ -224,7 +244,9 @@ public class ActivitiServiceImpl implements ActivitiService {
 		if (task == null) {
 			throw new UserTaskDontFindException();
 		}
+		logger.info("***准备要完成任务的ID:" + task.getId() + "***");
 //		验证处理人员身份是否正确
+		logger.info("***准备验证人员身份是否正确***");
 		if (!task.getAssignee().equals(operationUserIdNow + "")) {
 			throw new UserTaskDontMatchException();
 		}
@@ -233,12 +255,17 @@ public class ActivitiServiceImpl implements ActivitiService {
 		String processInstanceId = task.getProcessInstanceId();
 
 //		保存业务执行前的历史数据
+		logger.info("***准备开始保存历史数据***");
 		BusinessTableInfo businessTableInfo = activitiMapper.findBusinessTableInfoByProcessInstanceId(processInstanceId);
 		String pkName = activitiMapper.findPkNameByTable(businessTableInfo.getBusinessTableName());
 		saveHistory(businessTableInfo.getBusinessTableName(), pkName, businessTableInfo.getPk(), processInstanceId, userTaskId);
+		logger.info("***保存历史数据成功***");
 //		执行业务逻辑
+		logger.info("***开始执行业务函数***");
 		T execute = businessMethod.execute(businessValue);
+		logger.info("***执行业务函数成功,并返回了:" + execute + "***");
 //		业务完成后的后验条件
+		logger.info("***验证业务后验条件***");
 		if (!posteriorVerification.execute(posteriorValues)) {
 			throw new PosterioriConditionDontSatisfyException();
 		}
@@ -251,11 +278,18 @@ public class ActivitiServiceImpl implements ActivitiService {
 			map = new HashMap<>();
 		}
 
+		logger.info("***获取下一个个人任务的定义信息***");
 		UserTask userTask = getOperationUserStatus(taskId, processValue);
-		setCandidateUsers(userTask, map);
-
+		if (userTask != null) {
+			logger.info("***设置下一个任务的候选人***");
+			setCandidateUsers(userTask, map);
+		}
+		logger.info("***更新流程参数中的业务数据***");
+		updateBusiness(businessTableInfo.getBusinessTableName(), pkName, businessTableInfo.getPk(), processInstanceId, "data", clazz);
 //		完成任务
+		logger.info("***准备完成任务***");
 		taskService.complete(taskId, map);
+		logger.info("***完成任务***");
 		return execute;
 	}
 
@@ -858,6 +892,16 @@ public class ActivitiServiceImpl implements ActivitiService {
 		return activitiMapper.findUserTaskDetailInfo(taskId);
 	}
 
+	@Override
+	public TaskInterface findNowTaskInfo(String taskId, String assignee) {
+		return activitiMapper.findNowTaskInfo(taskId, assignee);
+	}
+
+	@Override
+	public List<ActivitiTaskVariablesInfo> findMySelfUserTaskByAssignee(String userId) {
+		return activitiMapper.findMySelfUserTaskByAssignee(userId);
+	}
+
 	/**
 	 * 获取分页信息
 	 *
@@ -930,7 +974,7 @@ public class ActivitiServiceImpl implements ActivitiService {
 				}
 			}
 		}
-		throw new UserTaskDontFindException();
+		return null;
 	}
 
 	private UserTask getOperationUserStatus(StartEvent startEvent, Map<String, Object> processValue) throws KindCantUseException, StartEventDontHaveAnyOutGoingFlowsException, UserTaskDontFindException {
@@ -1005,6 +1049,31 @@ public class ActivitiServiceImpl implements ActivitiService {
 		String jsonStr = objectMapper.writeValueAsString(historyData);
 //		创建业务信息
 		activitiMapper.createNewHistoryDate(jsonStr, processInstanceId, userTaskId);
+	}
+
+	/**
+	 * 更新流程参数中的业务数据
+	 *
+	 * @param operationTableName
+	 * @param pkName
+	 * @param businessId
+	 * @param processInstanceId
+	 * @param businessName
+	 * @throws JsonProcessingException
+	 * @throws ProcessInstanceDontFindException
+	 */
+	private <T> void updateBusiness(String operationTableName, String pkName, Integer businessId, String processInstanceId, String businessName, Class<T> clazz) throws JsonProcessingException, ProcessInstanceDontFindException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchFieldException {
+
+//		拼接查询业务信息的字符串
+		String sql = "SELECT * FROM " + operationTableName + " WHERE " + pkName + "=" + businessId;
+//		查询业务信息
+		Map<String, Object> historyData = activitiMapper.executeSelectSql(sql);
+
+		T t = MapUtil.MapToBean(historyData, clazz);
+
+		Map<String, Object> variables = getVariablesByBusiness(businessName, t);
+		logger.info("***将要更新数据" + variables + "***");
+		setVariablesByProcessInstance(processInstanceId, variables);
 	}
 
 	private UserTask getUserTask(ExclusiveGateway exclusiveGateway) {
@@ -1096,6 +1165,7 @@ public class ActivitiServiceImpl implements ActivitiService {
 		TranscoderOutput output = new TranscoderOutput(outputStream);
 		transcoder.transcode(input, output);
 		input.getInputStream().close();
+		file.delete();
 	}
 
 }

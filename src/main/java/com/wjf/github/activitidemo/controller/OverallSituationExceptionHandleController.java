@@ -12,17 +12,20 @@ import java.io.IOException;
 public class OverallSituationExceptionHandleController {
 
 	@ExceptionHandler(value = UserTaskDontFindException.class)
-	public ResponseMap userTaskDontFindExceptionHandler(){
+	public ResponseMap userTaskDontFindExceptionHandler(UserTaskDontFindException e){
+		e.printStackTrace();
 		return ResponseMap.getFailResult("该用户任务未找到！");
 	}
 
 	@ExceptionHandler(value = UserTaskCantRollBackException.class)
-	public ResponseMap userTaskCantRollBackExceptionHandler(){
+	public ResponseMap userTaskCantRollBackExceptionHandler(UserTaskCantRollBackException e){
+		e.printStackTrace();
 		return ResponseMap.getFailResult("该用户任务不能回滚！");
 	}
 
 	@ExceptionHandler(value = UserTaskDontMatchException.class)
-	public ResponseMap userTaskDontMatchExceptionHandler(){
+	public ResponseMap userTaskDontMatchExceptionHandler(UserTaskDontMatchException e){
+		e.printStackTrace();
 		return ResponseMap.getFailResult("用户任务不匹配！");
 	}
 

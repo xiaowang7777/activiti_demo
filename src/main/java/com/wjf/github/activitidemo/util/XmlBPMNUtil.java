@@ -3,19 +3,18 @@ package com.wjf.github.activitidemo.util;
 import com.wjf.github.activitidemo.entity.LineInfo;
 import com.wjf.github.activitidemo.entity.NodeBaseInfo;
 import com.wjf.github.activitidemo.entity.NodeInfo;
-import org.dom4j.Document;
-import org.dom4j.DocumentHelper;
-import org.dom4j.Element;
+import org.dom4j.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class XmlUtil {
+public class XmlBPMNUtil {
 
 	private static final String BPMN_SHAPE_PREFIX = "Shape-";
 
 	private static final String BPMN_EDGE_PREFIX = "BPMNEdge_";
 
-	private static final String BPMN_BACKGROUND_COLOR = "#3C3F41";
+	private static final String BPMN_BACKGROUND_COLOR = "#FFF";
 
 	private static final Double BPMN_IMAGE_WIDTH = 842.4;
 
@@ -29,25 +28,18 @@ public class XmlUtil {
 
 	private static final Double BPMN_IMAGE_ABLE_Y = 5.0;
 
-	private XmlUtil() {
+	private XmlBPMNUtil() {
 	}
 
 	private Element createDefinitionElement(Document document, String id, String name) {
-		return document.addElement("definitions")
-				.addAttribute("xmlns", "http://www.omg.org/spec/BPMN/20100524/MODEL")
-				.addAttribute("xmlns:activiti", "http://activiti.org/bpmn")
-				.addAttribute("xmlns:bpmndi", "http://www.omg.org/spec/BPMN/20100524/DI")
-				.addAttribute("xmlns:omgdc", "http://www.omg.org/spec/DD/20100524/DC")
-				.addAttribute("xmlns:omgdi", "http://www.omg.org/spec/DD/20100524/DI")
-				.addAttribute("xmlns:tns", "http://www.activiti.org/test")
-				.addAttribute("xmlns:xsd", "http://www.w3.org/2001/XMLSchema")
-				.addAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+
+		return document.addElement("definitions", "http://www.omg.org/spec/BPMN/20100524/MODEL")
 				.addAttribute("expressionLanguage", "http://www.w3.org/1999/XPath")
 				.addAttribute("id", id)
 				.addAttribute("name", name)
 				.addAttribute("targetNamespace", "http://www.activiti.org/test")
 				.addAttribute("typeLanguage", "http://www.w3.org/2001/XMLSchema")
-				.addNamespace("activiti","http://activiti.org/bpmn")
+				.addNamespace("activiti", "http://activiti.org/bpmn")
 				.addNamespace("bpmndi", "http://www.omg.org/spec/BPMN/20100524/DI")
 				.addNamespace("omgdc", "http://www.omg.org/spec/DD/20100524/DC")
 				.addNamespace("omgdi", "http://www.omg.org/spec/DD/20100524/DI")
@@ -76,11 +68,13 @@ public class XmlUtil {
 				.addAttribute("name", name);
 	}
 
-	private Element createUserTaskElement(Element process, String id, String name, String exclusive) {
+	private Element createUserTaskElement(Element process, String id, String name, String exclusive, String users, String formKey) {
 		return process.addElement("userTask")
 				.addAttribute("activiti:exclusive", exclusive)
 				.addAttribute("id", id)
-				.addAttribute("name", name);
+				.addAttribute("name", name)
+				.addAttribute("activiti:candidateUsers", users)
+				.addAttribute("activiti:formKey", formKey);
 	}
 
 	private Element createSequenceFlowElement(Element process, String id, String from, String to) {
@@ -135,12 +129,12 @@ public class XmlUtil {
 	}
 
 	public static Document createDocument(String processId, List<NodeBaseInfo> list, Double width, Double height) {
-		XmlUtil xmlUtil = new XmlUtil();
+		XmlBPMNUtil xmlBPMNUtil = new XmlBPMNUtil();
 		Document document = DocumentHelper.createDocument();
-		Element rootElement = xmlUtil.createDefinitionElement(document, "m1588216735437", "");
-		Element processElement = xmlUtil.createProcessElement(rootElement, processId);
-		Element diagramElement = xmlUtil.createBPMNDiagramElement(rootElement, "Diagram-_1", "NEW Diagram");
-		Element bpmnPlaneElement = xmlUtil.createBPMNPlaneElement(diagramElement, processId);
+		Element rootElement = xmlBPMNUtil.createDefinitionElement(document, "m1588216735437", "");
+		Element processElement = xmlBPMNUtil.createProcessElement(rootElement, "_" + processId);
+		Element diagramElement = xmlBPMNUtil.createBPMNDiagramElement(rootElement, "Diagram-_1", "NEW Diagram");
+		Element bpmnPlaneElement = xmlBPMNUtil.createBPMNPlaneElement(diagramElement, "_" + processId);
 
 		double width_ratio = width / BPMN_IMAGE_ABLE_WIDTH;
 		double height_ratio = height / BPMN_IMAGE_ABLE_HEIGHT;
@@ -154,28 +148,73 @@ public class XmlUtil {
 			if (nodeBaseInfo instanceof NodeInfo) {
 				tmpNodeInfo = (NodeInfo) nodeBaseInfo;
 				if (tmpNodeInfo.getType() == 1) {
-					xmlUtil.createStartEventElement(processElement, tmpNodeInfo.getId(), tmpNodeInfo.getName());
+					xmlBPMNUtil.createStartEventElement(processElement, "_" + tmpNodeInfo.getId(), tmpNodeInfo.getName());
 				} else if (tmpNodeInfo.getType() == 2) {
-					xmlUtil.createEndEventElement(processElement, tmpNodeInfo.getId(), tmpNodeInfo.getName());
+					xmlBPMNUtil.createEndEventElement(processElement, "_" + tmpNodeInfo.getId(), tmpNodeInfo.getName());
 				} else {
-					xmlUtil.createUserTaskElement(processElement, tmpNodeInfo.getId(), tmpNodeInfo.getName(), "true");
+					xmlBPMNUtil.createUserTaskElement(processElement, "_" + tmpNodeInfo.getId(), tmpNodeInfo.getName(), "true", "#{" + tmpNodeInfo.getUserGroup() + "}", tmpNodeInfo.getPath() + "");
 				}
-				Element shapeElement = xmlUtil.createBPMNShapeElement(bpmnPlaneElement, tmpNodeInfo.getId());
-				xmlUtil.createBoundsElement(shapeElement, tmpNodeInfo.getHeight() * height_ratio + "", tmpNodeInfo.getWidth() * width_ratio + "", tmpNodeInfo.getX() * width_ratio + "", tmpNodeInfo.getY() * height_ratio + "");
-				Element labelElement = xmlUtil.createBPMNLabel(shapeElement);
-				xmlUtil.createBoundsElement(labelElement, tmpNodeInfo.getHeight() * height_ratio + "", tmpNodeInfo.getWidth() * width_ratio + "", "0", "0");
+				Element shapeElement = xmlBPMNUtil.createBPMNShapeElement(bpmnPlaneElement, "_" + tmpNodeInfo.getId());
+				xmlBPMNUtil.createBoundsElement(shapeElement, Double.parseDouble(tmpNodeInfo.getHeight().replaceAll("px", "")) * height_ratio + "", Double.parseDouble(tmpNodeInfo.getWidth().replaceAll("px", "")) * width_ratio + "", Double.parseDouble(tmpNodeInfo.getTop().replaceAll("px", "")) * width_ratio + "", Double.parseDouble(tmpNodeInfo.getLeft().replaceAll("px", "")) * height_ratio + "");
+				Element labelElement = xmlBPMNUtil.createBPMNLabel(shapeElement);
+				xmlBPMNUtil.createBoundsElement(labelElement, Double.parseDouble(tmpNodeInfo.getHeight().replaceAll("px", "")) * height_ratio + "", Double.parseDouble(tmpNodeInfo.getWidth().replaceAll("px", "")) * width_ratio + "", "0", "0");
 			} else {
 				tmpLineInfo = (LineInfo) nodeBaseInfo;
-				xmlUtil.createSequenceFlowElement(processElement, tmpLineInfo.getId(), tmpLineInfo.getFrom(), tmpLineInfo.getTo());
-				Element edgeElement = xmlUtil.createBPMNEdgeElement(bpmnPlaneElement, tmpLineInfo.getId(), tmpLineInfo.getFrom(), tmpLineInfo.getTo());
-				xmlUtil.createWayPoint(edgeElement, tmpLineInfo.getX() * height_ratio + "", tmpLineInfo.getY() * width_ratio + "");
-				xmlUtil.createWayPoint(edgeElement, tmpLineInfo.getHeight() * height_ratio + "", tmpLineInfo.getWidth() * width_ratio + "");
-				Element labelElement = xmlUtil.createBPMNLabel(edgeElement);
-				xmlUtil.createBoundsElement(labelElement, tmpLineInfo.getHeight() * height_ratio + "", tmpLineInfo.getWidth() * width_ratio + "", "0", "0");
+				xmlBPMNUtil.createSequenceFlowElement(processElement, "_" + tmpLineInfo.getId(), "_" + tmpLineInfo.getFrom(), "_" + tmpLineInfo.getTo());
+				Element edgeElement = xmlBPMNUtil.createBPMNEdgeElement(bpmnPlaneElement, "_" + tmpLineInfo.getId(), "_" + tmpLineInfo.getFrom(), "_" + tmpLineInfo.getTo());
+				xmlBPMNUtil.createWayPoint(edgeElement, Double.parseDouble(tmpLineInfo.getTop().replaceAll("px", "")) * height_ratio + "", Double.parseDouble(tmpLineInfo.getLeft().replaceAll("px", "")) * width_ratio + "");
+				xmlBPMNUtil.createWayPoint(edgeElement, Double.parseDouble(tmpLineInfo.getHeight().replaceAll("px", "")) * height_ratio + "", Double.parseDouble(tmpLineInfo.getWidth().replaceAll("px", "")) * width_ratio + "" + "");
+				Element labelElement = xmlBPMNUtil.createBPMNLabel(edgeElement);
+				xmlBPMNUtil.createBoundsElement(labelElement, "0", "0", "0", "0");
 			}
 
 		}
 
 		return document;
+	}
+
+	public static Document createDocument(String processId, MyList<NodeInfo> nodeList, List<LineInfo> lineList, Double width, Double height) {
+
+		int index = 0;
+
+		List<NodeBaseInfo> list = new ArrayList<>();
+
+		for (int i = 0; i < nodeList.size(); i++) {
+			if (nodeList.get(i).getType() == 1) {
+				NodeInfo nodeInfo = nodeList.reject(i);
+				nodeInfo.setTop(60 + "px");
+				nodeInfo.setLeft(200 * index + "px");
+				i += 1;
+				list.add(nodeInfo);
+				create(nodeInfo, lineList, nodeList, list, i);
+				break;
+			}
+		}
+
+		list.addAll(lineList);
+
+		return createDocument(processId, list, width, height);
+	}
+
+	private static void create(NodeInfo source, List<LineInfo> lineList, MyList<NodeInfo> nodeList, List<NodeBaseInfo> list, int index) {
+		for (LineInfo lineInfo : lineList) {
+			if (lineInfo.getFrom().equals(source.getId())) {
+				for (int i = 0; i < nodeList.size(); i++) {
+					if (nodeList.get(i).getId().equals(lineInfo.getTo())) {
+						NodeInfo target = nodeList.reject(i);
+						target.setLeft(200 * index + "px");
+						target.setTop(60 + "px");
+						lineInfo.setHeight(source.getTop());
+						lineInfo.setWidth(source.getLeft());
+						lineInfo.setLeft(target.getLeft());
+						lineInfo.setTop(target.getTop());
+						index += 1;
+						list.add(target);
+						create(target, lineList, nodeList, list, index);
+						return;
+					}
+				}
+			}
+		}
 	}
 }

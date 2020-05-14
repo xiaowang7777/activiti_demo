@@ -15,16 +15,5 @@ import java.io.Serializable;
 public abstract class NodeBaseInfo implements Serializable {
 
 	private static final long serialVersionUID = 4031434329210295355L;
-	private String id;
-
-	private String name;
-
-	private Double width;
-
-	private Double height;
-
-	private Double x;
-
-	private Double y;
 
 }
